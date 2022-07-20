@@ -28,7 +28,7 @@ get_diff() {
   pushd $TMPDIR >/dev/null 2>&1
   echo "$1" > expected
   echo "$2" > actual
-  colordiff -u expected actual | diff-highlight
+  colordiff -u expected actual
   rm actual expected
   popd >/dev/null 2>&1
   rmdir $TMPDIR
@@ -60,10 +60,12 @@ for test in $TESTS; do
   # Load xprv for this test into SDKMS
   xprv=$(cat $BASE/${test}/keys.json | jq -r .xprv)
   xpub=$(cat $BASE/${test}/keys.json | jq -r .xpub)
+  echo "Calling sdkms with import"
   keyid=$(echo $xprv | sdkms-cli import-secret --in /dev/stdin --name $xpub)
 
   EXPECTED=$(cat $BASE/${test}/output.json | jq -M -S .)
   EXPECTED_RAW=$(cat $BASE/${test}/raw.json | jq -M -S .)
+  echo "Calling sdkms to invoke"
   ACTUAL=$(cat $BASE/${test}/input.json | jq ".masterKeyId = \"${keyid}\"" | sdkms-cli --prefer-app-auth invoke-plugin --id $SDKMS_PLUGIN_UUID --in /dev/stdin | jq -M -S .)
   NORMALIZED=$(echo "$ACTUAL" | jq ". += $(cat $BASE/${test}/keys.json)" | jq ". += $(cat $BASE/${test}/input.json)" | $BASE/normalize.js | jq -M -S .)
 
@@ -72,5 +74,6 @@ for test in $TESTS; do
   echo
 
   # Remove xprv from SDKMS
+  echo "Calling sdkms to delete"
   sdkms-cli delete-key --kid $keyid
 done
